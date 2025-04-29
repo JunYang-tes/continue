@@ -37,19 +37,19 @@ const PATH_AVAILABLE = !isEmpty(path); // check if path is available
 
 const RUNNING_LOCALLY = FS_AVAILABLE && PATH_AVAILABLE;
 
-// const __dirname = RUNNING_LOCALLY
+// const import.meta.dirname = RUNNING_LOCALLY
 //     ? path.dirname(path.dirname(url.fileURLToPath(import.meta.url)))
 //     : './';
 
 // Only used for environments with access to file system
 const DEFAULT_CACHE_DIR = RUNNING_LOCALLY
-    ? path.join(__dirname, '/.cache/')
+    ? path.join(import.meta.dirname, '/.cache/')
     : null;
 
 // Set local model path, based on available APIs
 const DEFAULT_LOCAL_MODEL_PATH = '/models/';
 const localModelPath = RUNNING_LOCALLY
-    ? path.join(__dirname, DEFAULT_LOCAL_MODEL_PATH)
+    ? path.join(import.meta.dirname, DEFAULT_LOCAL_MODEL_PATH)
     : DEFAULT_LOCAL_MODEL_PATH;
 
 // Set path to wasm files. This is needed when running in a web worker.
@@ -57,7 +57,7 @@ const localModelPath = RUNNING_LOCALLY
 // We use remote wasm files by default to make it easier for newer users.
 // In practice, users should probably self-host the necessary .wasm files.
 onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
-    ? path.join(__dirname, '/dist/')
+    ? path.join(import.meta.dirname, '/dist/')
     : `https://cdn.jsdelivr.net/npm/@xenova/transformers@${VERSION}/dist/`;
 
 
@@ -65,7 +65,7 @@ onnx_env.wasm.wasmPaths = RUNNING_LOCALLY
  * Global variable used to control execution. This provides users a simple way to configure Transformers.js.
  * @property {Object} backends Expose environment variables of different backends,
  * allowing users to set these variables if they want to.
- * @property {string} __dirname Directory name of module. Useful for resolving local paths.
+ * @property {string} import.meta.dirname Directory name of module. Useful for resolving local paths.
  * @property {string} version This version of Transformers.js.
  * @property {boolean} allowRemoteModels Whether to allow loading of remote files, defaults to `true`.
  * If set to `false`, it will have the same effect as setting `local_files_only=true` when loading pipelines, models, tokenizers, processors, etc.
@@ -92,7 +92,7 @@ export const env = {
         tfjs: {},
     },
 
-    __dirname,
+    __dirname:import.meta.dirname,
     version: VERSION,
 
     /////////////////// Model settings ///////////////////

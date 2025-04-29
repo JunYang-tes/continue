@@ -12,7 +12,7 @@ env.allowLocalModels = true;
 env.allowRemoteModels = false;
 if (typeof window === "undefined") {
   // The embeddings provider should just never be called in the browser
-  env.localModelPath = path.join(__dirname, "..", "models");
+  env.localModelPath = path.join(import.meta.dirname, "..", "models");
 }
 
 class EmbeddingsPipeline {
