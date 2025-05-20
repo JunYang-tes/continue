@@ -1,14 +1,15 @@
 {
   "name": "continuedev-core-fork",
-  "version": "1.1.24-2",
+  "version": "1.1.24-4",
   "description": "The Continue Core contains functionality that can be shared across web, VS Code, or Node.js",
   "scripts": {
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
     "test:coverage": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage && open ./coverage/lcov-report/index.html",
     "tsc:check": "tsc -p ./ --noEmit",
-    "build":"npm run build:swc;npm run build:npm",
+    "build":"npm run build:swc;npm run build:npm;npm run copy",
     "build:swc":"swc --config-file .swcrc src/ --out-dir dist/ --strip-leading-paths",
     "build:npm": "tsc -p ./tsconfig.npm.json",
+    "copy":"cp -r ../extensions/vscode/models ./dist/llm/models",
     "lint": "eslint . --ext ts",
     "lint:fix": "eslint . --ext ts --fix"
   },

@@ -1,5 +1,5 @@
 import workerpool from "workerpool";
-import llamaTokenizer from "./llamaTokenizer.mjs";
+import llamaTokenizer from "./llamaTokenizer.js";
 
 function encode(segment) {
     return llamaTokenizer.encode(segment);

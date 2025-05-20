@@ -13,7 +13,7 @@ export class LlamaAsyncEncoder implements AsyncEncoder {
 
   constructor() {
     this.workerPool = workerpool.pool(
-      workerCodeFilePath("llamaTokenizerWorkerPool.mjs"),
+      workerCodeFilePath("llamaTokenizerWorkerPool.js"),// swc transpiles this to js
     );
   }
 
@@ -37,7 +37,7 @@ export class GPTAsyncEncoder implements AsyncEncoder {
 
   constructor() {
     this.workerPool = workerpool.pool(
-      workerCodeFilePath("tiktokenWorkerPool.mjs"),
+      workerCodeFilePath("tiktokenWorkerPool.js"),
     );
   }
 
