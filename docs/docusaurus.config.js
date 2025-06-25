@@ -5,7 +5,7 @@ const { themes } = require("prism-react-renderer");
 const lightCodeTheme = themes.github;
 const darkCodeTheme = themes.dracula;
 
-/** @type {import('@docusaurus/types').Config} */
+/** @type {import("@docusaurus/types").Config} */
 const config = {
   // Docusaurus V3.6 experimental faster compile features
   // https://docusaurus.io/blog/releases/3.6#adoption-strategy
@@ -48,7 +48,7 @@ const config = {
   presets: [
     [
       "classic",
-      /** @type {import('@docusaurus/preset-classic').Options} */
+      /** @type {import("@docusaurus/preset-classic").Options} */
       ({
         docs: {
           routeBasePath: "/",
@@ -65,8 +65,14 @@ const config = {
     ],
   ],
 
+  scripts: [
+    {
+      src: "/scripts/custom-reo.js", // it references from static folder
+    },
+  ],
+
   themeConfig:
-    /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
+    /** @type {import("@docusaurus/preset-classic").ThemeConfig} */
     ({
       metadata: [
         {
@@ -197,6 +203,23 @@ const config = {
       },
     }),
   plugins: [
+    [
+      "posthog-docusaurus",
+      {
+        apiKey: process.env.POSTHOG_API_KEY || "DEV",
+        appUrl: "https://us.i.posthog.com",
+        enableInDevelopment: false,
+      },
+    ],
+    [
+      "docusaurus-plugin-llms-txt",
+      {
+        // Optional configuration
+        outputPath: "static/llms.txt",
+        includePatterns: ["docs/**"],
+        excludePatterns: ["**/node_modules/**"],
+      },
+    ],
     [
       "@docusaurus/plugin-client-redirects",
       {

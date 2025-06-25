@@ -4,6 +4,7 @@
 
 ## Checklist
 
+- [] I've read the [contributing guide](https://github.com/continuedev/continue/blob/main/CONTRIBUTING.md)
 - [] The relevant docs, if any, have been updated or created
 - [] The relevant tests, if any, have been updated or created
 
@@ -11,6 +12,6 @@
 
 [ For visual changes, include screenshots. Screen recordings are particularly helpful, and appreciated! ]
 
-## Testing instructions
+## Tests
 
-[ For new or modified features, provide step-by-step testing instructions to validate the intended behavior of the change, including any relevant tests to run. ]
+[ What tests were added or updated to ensure the changes work as expected? ]

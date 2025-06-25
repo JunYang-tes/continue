@@ -2,6 +2,8 @@ import { CommandLineIcon } from "@heroicons/react/24/outline";
 import { useContext } from "react";
 import { lightGray, vscForeground } from "../..";
 import { IdeMessengerContext } from "../../../context/IdeMessenger";
+import { isJetBrains } from "../../../util";
+import { extractCommand } from "../utils/commandExtractor";
 
 interface RunInTerminalButtonProps {
   command: string;
@@ -10,8 +12,15 @@ interface RunInTerminalButtonProps {
 export function RunInTerminalButton({ command }: RunInTerminalButtonProps) {
   const ideMessenger = useContext(IdeMessengerContext);
 
+  if (isJetBrains()) {
+    // JetBrains plugin doesn't currently have a way to run the command in the terminal for the user
+    return null;
+  }
+
   function runInTerminal() {
-    void ideMessenger.post("runCommand", { command });
+    // Extract just the command line
+    const extractedCommand = extractCommand(command);
+    void ideMessenger.post("runCommand", { command: extractedCommand });
   }
 
   return (

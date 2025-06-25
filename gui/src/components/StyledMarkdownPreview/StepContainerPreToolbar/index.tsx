@@ -8,20 +8,18 @@ import {
   vscEditorBackground,
 } from "../..";
 import { IdeMessengerContext } from "../../../context/IdeMessenger";
-import { useIdeMessengerRequest } from "../../../hooks";
+import { useIdeMessengerRequest } from "../../../hooks/useIdeMessengerRequest";
 import { useWebviewListener } from "../../../hooks/useWebviewListener";
 import { useAppSelector } from "../../../redux/hooks";
-import {
-  selectApplyStateByStreamId,
-  selectIsInEditMode,
-} from "../../../redux/slices/sessionSlice";
+import { selectCurrentToolCallApplyState } from "../../../redux/selectors/selectCurrentToolCall";
+import { selectApplyStateByStreamId } from "../../../redux/slices/sessionSlice";
 import { getFontSize } from "../../../util";
+import Spinner from "../../gui/Spinner";
 import { isTerminalCodeBlock } from "../utils";
 import { ApplyActions } from "./ApplyActions";
 import { CopyButton } from "./CopyButton";
 import { CreateFileButton } from "./CreateFileButton";
 import { FileInfo } from "./FileInfo";
-import { GeneratingCodeLoader } from "./GeneratingCodeLoader";
 import { InsertButton } from "./InsertButton";
 import { RunInTerminalButton } from "./RunInTerminalButton";
 
@@ -52,8 +50,9 @@ export interface StepContainerPreToolbarProps {
   codeBlockContent: string;
   language: string | null;
   relativeFilepath?: string;
-  isGeneratingCodeBlock: boolean;
+  itemIndex?: number;
   codeBlockIndex: number; // To track which codeblock we are applying
+  isLastCodeblock: boolean;
   codeBlockStreamId: string;
   range?: string;
   children: any;
@@ -65,8 +64,9 @@ export function StepContainerPreToolbar({
   codeBlockContent,
   language,
   relativeFilepath,
-  isGeneratingCodeBlock,
+  itemIndex,
   codeBlockIndex,
+  isLastCodeblock,
   codeBlockStreamId,
   range,
   children,
@@ -74,10 +74,8 @@ export function StepContainerPreToolbar({
   disableManualApply,
 }: StepContainerPreToolbarProps) {
   const ideMessenger = useContext(IdeMessengerContext);
-  const isInEditMode = useAppSelector(selectIsInEditMode);
-  const [isExpanded, setIsExpanded] = useState(
-    expanded ?? (isInEditMode ? false : true),
-  );
+  const history = useAppSelector((state) => state.session.history);
+  const [isExpanded, setIsExpanded] = useState(expanded ?? true);
 
   const [relativeFilepathUri, setRelativeFilepathUri] = useState<string | null>(
     null,
@@ -101,6 +99,9 @@ export function StepContainerPreToolbar({
   const applyState = useAppSelector((state) =>
     selectApplyStateByStreamId(state, codeBlockStreamId),
   );
+  const currentToolCallApplyState = useAppSelector(
+    selectCurrentToolCallApplyState,
+  );
 
   /**
    * In the case where `relativeFilepath` is defined, this will just be `relativeFilepathUri`.
@@ -114,6 +115,14 @@ export function StepContainerPreToolbar({
   const isNextCodeBlock = nextCodeBlockIndex === codeBlockIndex;
   const hasFileExtension =
     relativeFilepath && /\.[0-9a-z]+$/i.test(relativeFilepath);
+
+  const isStreaming = useAppSelector((store) => store.session.isStreaming);
+
+  const isLastItem = useMemo(() => {
+    return itemIndex === history.length - 1;
+  }, [history.length, itemIndex]);
+
+  const isGeneratingCodeBlock = isLastItem && isLastCodeblock && isStreaming;
 
   // If we are creating a file, we already render that in the button
   // so we don't want to dispaly it twice here
@@ -204,7 +213,7 @@ export function StepContainerPreToolbar({
     setAppliedFileUri(undefined);
   }
 
-  function onClickFilename() {
+  async function onClickFilename() {
     if (appliedFileUri) {
       ideMessenger.post("showFile", {
         filepath: appliedFileUri,
@@ -212,13 +221,44 @@ export function StepContainerPreToolbar({
     }
 
     if (relativeFilepath) {
+      const filepath = await inferResolvedUriFromRelativePath(
+        relativeFilepath,
+        ideMessenger.ide,
+      );
+
       ideMessenger.post("showFile", {
-        filepath: relativeFilepath,
+        filepath,
       });
     }
   }
 
   const renderActionButtons = () => {
+    const isPendingToolCall =
+      currentToolCallApplyState &&
+      currentToolCallApplyState.streamId === applyState?.streamId &&
+      currentToolCallApplyState.status === "not-started";
+
+    if (isGeneratingCodeBlock || isPendingToolCall) {
+      const numLines = codeBlockContent.split("\n").length;
+      const plural = numLines === 1 ? "" : "s";
+      if (isGeneratingCodeBlock) {
+        return (
+          <span className="text-lightgray inline-flex items-center gap-2 text-right">
+            {!isExpanded ? `${numLines} line${plural}` : "Generating"}{" "}
+            <div>
+              <Spinner />
+            </div>
+          </span>
+        );
+      } else {
+        return (
+          <span className="text-lightgray inline-flex items-center gap-2 text-right">
+            {`${numLines} line${plural} pending`}
+          </span>
+        );
+      }
+    }
+
     if (isTerminalCodeBlock(language, codeBlockContent)) {
       return <RunInTerminalButton command={codeBlockContent} />;
     }
@@ -227,7 +267,7 @@ export function StepContainerPreToolbar({
       return null;
     }
 
-    if (fileExists) {
+    if (fileExists || !relativeFilepath) {
       return (
         <ApplyActions
           disableManualApply={disableManualApply}
@@ -251,7 +291,7 @@ export function StepContainerPreToolbar({
   return (
     <TopDiv>
       <ToolbarDiv isExpanded={isExpanded} className="find-widget-skip gap-3">
-        <div className="flex max-w-72 flex-row items-center">
+        <div className="max-w-[50% flex flex-row items-center">
           <ChevronDownIcon
             onClick={() => setIsExpanded(!isExpanded)}
             className={`text-lightgray h-3.5 w-3.5 flex-shrink-0 cursor-pointer hover:brightness-125 ${
@@ -272,21 +312,14 @@ export function StepContainerPreToolbar({
         </div>
 
         <div className="flex items-center gap-2.5">
-          {isGeneratingCodeBlock ? (
-            <GeneratingCodeLoader
-              showLineCount={!isExpanded}
-              codeBlockContent={codeBlockContent}
-            />
-          ) : (
-            <>
-              <div className="xs:flex hidden items-center gap-2.5">
-                <InsertButton onInsert={onClickInsertAtCursor} />
-                <CopyButton text={codeBlockContent} />
-              </div>
-
-              {renderActionButtons()}
-            </>
+          {!isGeneratingCodeBlock && (
+            <div className="xs:flex hidden items-center gap-2.5">
+              <InsertButton onInsert={onClickInsertAtCursor} />
+              <CopyButton text={codeBlockContent} />
+            </div>
           )}
+
+          {renderActionButtons()}
         </div>
       </ToolbarDiv>
 

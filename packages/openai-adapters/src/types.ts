@@ -37,6 +37,7 @@ export const OpenAIConfigSchema = BasePlusConfig.extend({
     z.literal("deepinfra"),
     z.literal("groq"),
     z.literal("nvidia"),
+    z.literal("ovhcloud"),
     z.literal("fireworks"),
     z.literal("together"),
     z.literal("novita"),
@@ -83,6 +84,19 @@ export type CohereConfig = z.infer<typeof CohereConfigSchema>;
 
 export const AzureConfigSchema = OpenAIConfigSchema.extend({
   provider: z.literal("azure"),
+  env: z
+    .object({
+      apiVersion: z.string().optional(),
+      apiType: z
+        .union([
+          z.literal("azure-foundry"),
+          z.literal("azure-openai"),
+          z.literal("azure"), // Legacy
+        ])
+        .optional(),
+      deployment: z.string().optional(),
+    })
+    .optional(),
 });
 export type AzureConfig = z.infer<typeof AzureConfigSchema>;
 
@@ -98,10 +112,26 @@ export const AnthropicConfigSchema = OpenAIConfigSchema.extend({
 });
 export type AnthropicConfig = z.infer<typeof AnthropicConfigSchema>;
 
+export const WatsonXConfigSchema = BasePlusConfig.extend({
+  provider: z.literal("watsonx"),
+  apiKey: z.string(),
+  env: z.object({
+    apiVersion: z.string().optional(),
+    projectId: z.string().optional(),
+    deploymentId: z.string().optional(),
+  }),
+});
+export type WatsonXConfig = z.infer<typeof WatsonXConfigSchema>;
+
 export const JinaConfigSchema = OpenAIConfigSchema.extend({
   provider: z.literal("jina"),
 });
 export type JinaConfig = z.infer<typeof JinaConfigSchema>;
+
+export const InceptionConfigSchema = OpenAIConfigSchema.extend({
+  provider: z.literal("inception"),
+});
+export type InceptionConfig = z.infer<typeof InceptionConfigSchema>;
 
 // Discriminated union
 export const LLMConfigSchema = z.discriminatedUnion("provider", [
@@ -112,7 +142,9 @@ export const LLMConfigSchema = z.discriminatedUnion("provider", [
   AzureConfigSchema,
   GeminiConfigSchema,
   AnthropicConfigSchema,
+  WatsonXConfigSchema,
   JinaConfigSchema,
   MockConfigSchema,
+  InceptionConfigSchema,
 ]);
 export type LLMConfig = z.infer<typeof LLMConfigSchema>;

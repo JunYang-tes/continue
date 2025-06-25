@@ -6,9 +6,10 @@ import { DEFAULT_MAX_TOKENS } from "core/llm/constants";
 export type ConfigState = {
   configError: ConfigValidationError[] | undefined;
   config: BrowserSerializedContinueConfig;
+  loading: boolean;
 };
 
-const EMPTY_CONFIG: BrowserSerializedContinueConfig = {
+export const EMPTY_CONFIG: BrowserSerializedContinueConfig = {
   slashCommands: [
     {
       name: "share",
@@ -47,6 +48,7 @@ const EMPTY_CONFIG: BrowserSerializedContinueConfig = {
 const initialState: ConfigState = {
   configError: undefined,
   config: EMPTY_CONFIG,
+  loading: false,
 };
 
 export const configSlice = createSlice({
@@ -60,7 +62,11 @@ export const configSlice = createSlice({
       }: PayloadAction<ConfigResult<BrowserSerializedContinueConfig>>,
     ) => {
       const { config, errors } = result;
-      state.configError = errors;
+      if (!errors || errors.length === 0) {
+        state.configError = undefined;
+      } else {
+        state.configError = errors;
+      }
 
       // If an error is found in config on save,
       // We must invalidate the GUI config too,
@@ -77,6 +83,9 @@ export const configSlice = createSlice({
       { payload: config }: PayloadAction<BrowserSerializedContinueConfig>,
     ) => {
       state.config = config;
+    },
+    setConfigLoading: (state, { payload: loading }: PayloadAction<boolean>) => {
+      state.loading = loading;
     },
   },
   selectors: {
@@ -95,7 +104,8 @@ export const configSlice = createSlice({
   },
 });
 
-export const { updateConfig, setConfigResult } = configSlice.actions;
+export const { updateConfig, setConfigResult, setConfigLoading } =
+  configSlice.actions;
 
 export const {
   selectSelectedChatModelContextLength,

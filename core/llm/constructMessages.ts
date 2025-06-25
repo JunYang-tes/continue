@@ -1,37 +1,58 @@
 import {
   ChatHistoryItem,
   ChatMessage,
+  ContextItemWithId,
   RuleWithSource,
   TextMessagePart,
+  ToolResultChatMessage,
   UserChatMessage,
 } from "../";
 import { findLast } from "../util/findLast";
 import { normalizeToMessageParts } from "../util/messageContent";
-import { messageIsEmpty } from "./messages";
+import { isUserOrToolMsg } from "./messages";
 import { getSystemMessageWithRules } from "./rules/getSystemMessageWithRules";
+import { RulePolicies } from "./rules/types";
 
 export const DEFAULT_CHAT_SYSTEM_MESSAGE_URL =
-  "https://github.com/continuedev/continue/blob/main/core/llm/constructMessages.ts#L8";
+  "https://github.com/continuedev/continue/blob/main/core/llm/constructMessages.ts";
 
-export const DEFAULT_CHAT_SYSTEM_MESSAGE = `\
-<important_rules>
-  Always include the language and file name in the info string when you write code blocks. 
+export const DEFAULT_AGENT_SYSTEM_MESSAGE_URL =
+  "https://github.com/continuedev/continue/blob/main/core/llm/constructMessages.ts";
+
+const EDIT_MESSAGE = `\
+  Always include the language and file name in the info string when you write code blocks.
   If you are editing "src/main.py" for example, your code block should start with '\`\`\`python src/main.py'
 
   When addressing code modification requests, present a concise code snippet that
   emphasizes only the necessary changes and uses abbreviated placeholders for
-  unmodified sections. For instance:
+  unmodified sections. For example:
 
-  \`\`\`typescript /path/to/file
-  // ... rest of code here ...
+  \`\`\`language /path/to/file
+  // ... existing code ...
 
   {{ modified code here }}
 
-  // ... rest of code here ...
+  // ... existing code ...
 
   {{ another modification }}
 
-  // ... rest of code here ...
+  // ... rest of code ...
+  \`\`\`
+
+  In existing files, you should always restate the function or class that the snippet belongs to:
+
+  \`\`\`language /path/to/file
+  // ... existing code ...
+
+  function exampleFunction() {
+    // ... existing code ...
+
+    {{ modified code here }}
+
+    // ... rest of function ...
+  }
+
+  // ... rest of code ...
   \`\`\`
 
   Since users have access to their complete file, they prefer reading only the
@@ -39,16 +60,56 @@ export const DEFAULT_CHAT_SYSTEM_MESSAGE = `\
   at the beginning, middle, or end of files using these "lazy" comments. Only
   provide the complete file when explicitly requested. Include a concise explanation
   of changes unless the user specifically asks for code only.
+`;
+
+export const DEFAULT_CHAT_SYSTEM_MESSAGE = `\
+<important_rules>
+  You are in chat mode.
+
+  If the user asks to make changes to files offer that they can use the Apply Button on the code block, or switch to Agent Mode to make the suggested updates automatically.
+  If needed consisely explain to the user they can switch to agent mode using the Mode Selector dropdown and provide no other details.
+
+${EDIT_MESSAGE}
 </important_rules>`;
 
-const CANCELED_TOOL_CALL_MESSAGE =
-  "This tool call was cancelled by the user. You should clarify next steps, as they don't wish for you to use this tool.";
+export const DEFAULT_AGENT_SYSTEM_MESSAGE = `\
+<important_rules>
+  You are in agent mode.
+
+${EDIT_MESSAGE}
+</important_rules>`;
+
+/**
+ * Helper function to get the context items for a user message
+ */
+function getUserContextItems(
+  userMsg: UserChatMessage | ToolResultChatMessage | undefined,
+  history: ChatHistoryItem[],
+): ContextItemWithId[] {
+  if (!userMsg) return [];
+
+  // Find the history item that contains the userMsg
+  const historyItem = history.find((item) => {
+    // Check if the message ID matches
+    if ("id" in userMsg && "id" in item.message) {
+      return (item.message as any).id === (userMsg as any).id;
+    }
+    // Fallback to content comparison
+    return (
+      item.message.content === userMsg.content &&
+      item.message.role === userMsg.role
+    );
+  });
+
+  return historyItem?.contextItems || [];
+}
 
 export function constructMessages(
+  messageMode: string,
   history: ChatHistoryItem[],
-  baseChatSystemMessage: string | undefined,
+  baseChatOrAgentSystemMessage: string | undefined,
   rules: RuleWithSource[],
-  modelName: string,
+  rulePolicies?: RulePolicies,
 ): ChatMessage[] {
   const filteredHistory = history.filter(
     (item) => item.message.role !== "system",
@@ -57,6 +118,15 @@ export function constructMessages(
 
   for (let i = 0; i < filteredHistory.length; i++) {
     const historyItem = filteredHistory[i];
+
+    if (messageMode === "chat") {
+      const toolMessage: ToolResultChatMessage =
+        historyItem.message as ToolResultChatMessage;
+      if (historyItem.toolCallState?.toolCallId || toolMessage.toolCallId) {
+        // remove all tool calls from the history
+        continue;
+      }
+    }
 
     if (historyItem.message.role === "user") {
       // Gather context items for user messages
@@ -76,41 +146,34 @@ export function constructMessages(
         ...historyItem.message,
         content,
       });
-    } else if (historyItem.toolCallState?.status === "canceled") {
-      // Canceled tool call
-      msgs.push({
-        ...historyItem.message,
-        content: CANCELED_TOOL_CALL_MESSAGE,
-      });
     } else {
       msgs.push(historyItem.message);
     }
   }
 
-  const userMessage = findLast(msgs, (msg) => msg.role === "user") as
+  const lastUserMsg = findLast(msgs, isUserOrToolMsg) as
     | UserChatMessage
+    | ToolResultChatMessage
     | undefined;
+
+  // Get context items for the last user message
+  const lastUserContextItems = getUserContextItems(
+    lastUserMsg,
+    filteredHistory,
+  );
   const systemMessage = getSystemMessageWithRules({
-    baseSystemMessage: baseChatSystemMessage ?? DEFAULT_CHAT_SYSTEM_MESSAGE,
+    baseSystemMessage: baseChatOrAgentSystemMessage,
     rules,
-    userMessage,
-    currentModel: modelName,
+    userMessage: lastUserMsg,
+    contextItems: lastUserContextItems,
+    rulePolicies,
   });
+
   if (systemMessage.trim()) {
     msgs.unshift({
       role: "system",
       content: systemMessage,
     });
-  }
-
-  // We dispatch an empty assistant chat message to the history on submission. Don't send it
-  const lastMessage = msgs.at(-1);
-  if (
-    lastMessage &&
-    lastMessage.role === "assistant" &&
-    messageIsEmpty(lastMessage)
-  ) {
-    msgs.pop();
   }
 
   // Remove the "id" from all of the messages

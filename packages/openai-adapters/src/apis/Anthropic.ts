@@ -12,6 +12,8 @@ import {
 import { ChatCompletionCreateParams } from "openai/src/resources/index.js";
 import { AnthropicConfig } from "../types.js";
 import { chatChunk, chatChunkFromDelta, customFetch } from "../util.js";
+import { EMPTY_CHAT_COMPLETION } from "../util/emptyChatCompletion.js";
+import { safeParseArgs } from "../util/parseArgs.js";
 import {
   BaseLlmApi,
   CreateRerankResponse,
@@ -37,11 +39,23 @@ export class AnthropicApi implements BaseLlmApi {
       stop = [oaiBody.stop];
     }
 
+    const systemMessage = oaiBody.messages.find(
+      (msg) => msg.role === "system",
+    )?.content;
+
     const anthropicBody = {
       messages: this._convertMessages(
         oaiBody.messages.filter((msg) => msg.role !== "system"),
       ),
-      system: oaiBody.messages.find((msg) => msg.role === "system")?.content,
+      system: systemMessage
+        ? [
+            {
+              type: "text",
+              text: systemMessage,
+              cache_control: { type: "ephemeral" },
+            },
+          ]
+        : systemMessage,
       top_p: oaiBody.top_p,
       temperature: oaiBody.temperature,
       max_tokens: oaiBody.max_tokens ?? 4096, // max_tokens is required
@@ -92,7 +106,10 @@ export class AnthropicApi implements BaseLlmApi {
             type: "tool_use",
             id: toolCall.id,
             name: toolCall.function?.name,
-            input: JSON.parse(toolCall.function?.arguments || "{}"),
+            input: safeParseArgs(
+              toolCall.function?.arguments,
+              `${toolCall.function?.name} ${toolCall.id}`,
+            ),
           })),
         };
       }
@@ -144,6 +161,10 @@ export class AnthropicApi implements BaseLlmApi {
         signal,
       },
     );
+
+    if (response.status === 499) {
+      return EMPTY_CHAT_COMPLETION;
+    }
 
     const completion = (await response.json()) as any;
     return {

@@ -4,13 +4,11 @@ import ReactMarkdown from "react-markdown";
 import styled from "styled-components";
 import {
   CloseButton,
-  VSC_BACKGROUND_VAR,
   defaultBorderRadius,
-  lightGray,
-  parseColorForHex,
   vscBackground,
   vscForeground,
 } from "..";
+import { varWithFallback } from "../../styles/theme";
 
 interface TextDialogProps {
   showDialog: boolean;
@@ -23,7 +21,7 @@ const ScreenCover = styled.div`
   position: fixed;
   width: 100%;
   height: 100%;
-  background-color: ${parseColorForHex(VSC_BACKGROUND_VAR)}aa;
+  background-color: ${varWithFallback("background")}aa;
   z-index: 100000;
   flex-direction: column;
 `;
@@ -38,7 +36,7 @@ const DialogContainer = styled.div`
   border-radius: ${defaultBorderRadius};
   display: flex;
   flex-direction: column;
-  border: 1px solid ${lightGray};
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
   word-wrap: break-word;
 `;
 

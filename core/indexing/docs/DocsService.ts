@@ -36,6 +36,7 @@ import DocsCrawler, { DocsCrawlerType, PageData } from "./crawlers/DocsCrawler";
 import { runLanceMigrations, runSqliteMigrations } from "./migrations";
 
 import type * as LanceType from "vectordb";
+import { LLMError } from "../../llm";
 import { DocsCache, SiteIndexingResults } from "./DocsCache";
 
 // Purposefully lowercase because lancedb converts
@@ -185,7 +186,9 @@ export default class DocsService {
   private async init(configHandler: ConfigHandler) {
     const result = await configHandler.loadConfig();
     await this.handleConfigUpdate(result);
-    configHandler.onConfigUpdate(this.handleConfigUpdate.bind(this));
+    configHandler.onConfigUpdate(
+      this.handleConfigUpdate.bind(this) as (arg: any) => void,
+    );
   }
 
   readonly statuses: Map<string, IndexingStatus> = new Map();
@@ -421,6 +424,7 @@ export default class DocsService {
     return false;
   }
 
+  // eslint-disable-next-line max-statements
   async indexAndAdd(
     siteIndexingConfig: SiteIndexingConfig,
     forceReindex: boolean = false,
@@ -506,6 +510,16 @@ export default class DocsService {
     try {
       await provider.embed(["continue-test-run"]);
     } catch (e) {
+      if (e instanceof LLMError) {
+        // Report the error to the IDE
+        await this.messenger?.request("reportError", e);
+      }
+      this.handleStatusUpdate({
+        ...fixedStatus,
+        description: `Failed to test embeddings connection. ${e}`,
+        status: "failed",
+        progress: 1,
+      });
       console.error("Failed to test embeddings connection", e);
       return;
     }

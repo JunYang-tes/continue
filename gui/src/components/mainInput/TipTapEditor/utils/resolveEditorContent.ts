@@ -33,7 +33,6 @@ interface ResolveEditorContentInput {
   ideMessenger: IIdeMessenger;
   defaultContextProviders: DefaultContextProvider[];
   availableSlashCommands: SlashCommandDescription[];
-  selectedModelTitle: string;
   dispatch: Dispatch;
 }
 
@@ -60,7 +59,6 @@ export async function resolveEditorContent({
   ideMessenger,
   defaultContextProviders,
   availableSlashCommands,
-  selectedModelTitle,
   dispatch,
 }: ResolveEditorContentInput): Promise<ResolveEditorContentOutput> {
   const { parts, contextItemAttrs, selectedCode, slashCommandName } =
@@ -84,7 +82,6 @@ export async function resolveEditorContent({
     defaultContextProviders,
     parts,
     selectedCode,
-    selectedModelTitle,
   });
 
   if (shouldGatherContext) {
@@ -201,6 +198,8 @@ function processSlashCommand(
   const lastTextIndex = findLastIndex(parts, (part) => part.type === "text");
   const lastTextPart = parts[lastTextIndex] as TextMessagePart;
 
+  const originalPrompt = command.prompt ? " " + command.prompt : "";
+
   let input: string;
 
   /**
@@ -214,10 +213,10 @@ function processSlashCommand(
       role: "user",
       content: lastTextPart.text,
     }).trimStart();
-    lastTextPart.text = `/${command.name} ${lastTextPart.text}`;
+    lastTextPart.text = `/${command.name}${originalPrompt} ${lastTextPart.text}`;
   } else {
     input = "";
-    parts.push({ type: "text", text: `/${command.name}` });
+    parts.push({ type: "text", text: `/${command.name}${originalPrompt}` });
   }
 
   return {
@@ -236,7 +235,6 @@ async function gatherContextItems({
   defaultContextProviders,
   parts,
   selectedCode,
-  selectedModelTitle,
 }: {
   contextItemAttrs: MentionAttrs[];
   modifiers: InputModifiers;
@@ -244,7 +242,6 @@ async function gatherContextItems({
   defaultContextProviders: DefaultContextProvider[];
   parts: MessagePart[];
   selectedCode: RangeInFile[];
-  selectedModelTitle: string;
 }): Promise<ContextItemWithId[]> {
   let contextItems: ContextItemWithId[] = [];
 
@@ -255,7 +252,6 @@ async function gatherContextItems({
       query: item.query ?? "",
       fullInput: stripImages(parts),
       selectedCode,
-      selectedModelTitle,
     });
     if (result.status === "success") {
       contextItems.push(...result.content);
@@ -269,7 +265,6 @@ async function gatherContextItems({
       query: "",
       fullInput: stripImages(parts),
       selectedCode,
-      selectedModelTitle,
     });
 
     if (result.status === "success") {
@@ -285,7 +280,6 @@ async function gatherContextItems({
         query: provider.query ?? "",
         fullInput: stripImages(parts),
         selectedCode,
-        selectedModelTitle,
       });
       if (result.status === "success") {
         return result.content;

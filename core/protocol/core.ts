@@ -9,9 +9,10 @@ import { AutocompleteInput } from "../autocomplete/util/types";
 import { SharedConfigSchema } from "../config/sharedConfig";
 import { GlobalContextModelSelections } from "../util/GlobalContext";
 
-import type {
+import {
   BrowserSerializedContinueConfig,
   ChatMessage,
+  CompleteOnboardingPayload,
   ContextItem,
   ContextItemWithId,
   ContextSubmenuItem,
@@ -29,11 +30,18 @@ import type {
   SessionMetadata,
   SiteIndexingConfig,
   SlashCommandDescription,
+  StreamDiffLinesPayload,
   ToolCall,
 } from "../";
 import { SerializedOrgWithProfiles } from "../config/ProfileLifecycleManager";
+import { ControlPlaneSessionInfo } from "../control-plane/AuthTypes";
+import { FreeTrialStatus } from "../control-plane/client";
 
-export type OnboardingModes = "Local" | "Best" | "Custom" | "Quickstart";
+export enum OnboardingModes {
+  API_KEY = "API Key",
+  LOCAL = "Local",
+  MODELS_ADD_ON = "Models Add-On",
+}
 
 export interface ListHistoryOptions {
   offset?: number;
@@ -44,12 +52,14 @@ export type ToCoreFromIdeOrWebviewProtocol = {
   // Special
   ping: [string, string];
   abort: [undefined, void];
+  cancelApply: [undefined, void];
 
   // History
   "history/list": [ListHistoryOptions, SessionMetadata[]];
   "history/delete": [{ id: string }, void];
   "history/load": [{ id: string }, Session];
   "history/save": [Session, void];
+  "history/clear": [undefined, void];
   "devdata/log": [DevDataLogEvent, void];
   "config/addOpenAiKey": [string, void];
   "config/addModel": [
@@ -99,7 +109,6 @@ export type ToCoreFromIdeOrWebviewProtocol = {
       query: string;
       fullInput: string;
       selectedCode: RangeInFile[];
-      selectedModelTitle: string;
     },
     ContextItemWithId[],
   ];
@@ -141,20 +150,9 @@ export type ToCoreFromIdeOrWebviewProtocol = {
     },
     AsyncGenerator<ChatMessage, PromptLog>,
   ];
-  streamDiffLines: [
-    {
-      prefix: string;
-      highlighted: string;
-      suffix: string;
-      input: string;
-      language: string | undefined;
-      modelTitle: string | undefined;
-    },
-    AsyncGenerator<DiffLine>,
-  ];
+  streamDiffLines: [StreamDiffLinesPayload, AsyncGenerator<DiffLine>];
   "chatDescriber/describe": [
     {
-      selectedModelTitle: string;
       text: string;
     },
     string | undefined,
@@ -176,12 +174,7 @@ export type ToCoreFromIdeOrWebviewProtocol = {
     void,
   ];
   "index/indexingProgressBarInitialized": [undefined, void];
-  completeOnboarding: [
-    {
-      mode: OnboardingModes;
-    },
-    void,
-  ];
+  "onboarding/complete": [CompleteOnboardingPayload, void];
 
   // File changes
   "files/changed": [{ uris?: string[] }, void];
@@ -201,13 +194,22 @@ export type ToCoreFromIdeOrWebviewProtocol = {
 
   "auth/getAuthUrl": [{ useOnboarding: boolean }, { url: string }];
   "tools/call": [
-    { toolCall: ToolCall; selectedModelTitle: string },
-    { contextItems: ContextItem[] },
+    { toolCall: ToolCall },
+    { contextItems: ContextItem[]; errorMessage?: string },
   ];
   "clipboardCache/add": [{ content: string }, void];
-  "controlPlane/openUrl": [{ path: string; orgSlug: string | undefined }, void];
-  isItemTooBig: [
-    { item: ContextItemWithId; selectedModelTitle: string | undefined },
-    boolean,
+  "controlPlane/openUrl": [{ path: string; orgSlug?: string }, void];
+  "controlPlane/getFreeTrialStatus": [undefined, FreeTrialStatus | null];
+  "controlPlane/getModelsAddOnUpgradeUrl": [
+    { vsCodeUriScheme?: string },
+    { url: string } | null,
   ];
+  isItemTooBig: [{ item: ContextItemWithId }, boolean];
+  didChangeControlPlaneSessionInfo: [
+    { sessionInfo: ControlPlaneSessionInfo | undefined },
+    void,
+  ];
+  "process/markAsBackgrounded": [{ toolCallId: string }, void];
+  "process/isBackgrounded": [{ toolCallId: string }, boolean];
+  "mdm/setLicenseKey": [{ licenseKey: string }, boolean];
 };

@@ -4,10 +4,8 @@ description: Troubleshooting while waiting for help during beta / alpha testing
 keywords: [reload, delete, manually, logs, server, console]
 ---
 
-import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
-
-The Continue VS Code extension is currently in beta, and the JetBrains extension is in Alpha. If you are having trouble, please follow the steps below.
+import Tabs from "@theme/Tabs";
 
 1. [Check the logs](#check-the-logs)
 2. [Try the latest pre-release](#download-the-latest-pre-release)
@@ -35,13 +33,16 @@ In order to view debug logs, which contain extra information, click the dropdown
 4. Select the `Console` tab
 5. Read the console logs
 
-#### LLM prompt logs
+#### Prompt Logs (Continue Console)
 
-If you're getting a response from the LLM that doesn't seem to make sense, you can
+To view prompt logs/analytics, you can enable the Continue Console.
 
-1. Open the "Output" panel (right next to the terminal)
-2. In the dropdown, select "Continue - LLM Prompts/Completions"
-3. View the exact prompts that were sent to the LLM and the completions received
+1. Open VS Code settings (<kbd>cmd/ctrl</kbd> + <kbd>,</kbd>)
+2. Search for the setting "Continue: Enable Console" and enable it
+3. Reload the window
+4. Open the Continue Console by using the command palette (<kbd>cmd/ctrl</kbd> + <kbd>shift</kbd> + <kbd>P</kbd>) and searching for "Continue: Focus on Continue Console View"
+
+![Continue Console](../static/img/continue-console.png)
 
 ### JetBrains
 
@@ -119,6 +120,8 @@ If you're seeing a `fetch failed` error and your network requires custom certifi
 
 You may also set `requestOptions.caBundlePath` to an array of paths to multiple certificates.
 
+**_Windows VS Code Users_**: Installing the [win-ca](https://marketplace.visualstudio.com/items?itemName=ukoloff.win-ca) extension should also correct this issue.
+
 #### VS Code Proxy Settings
 
 If you are using VS Code and require requests to be made through a proxy, you are likely already set up through VS Code's [Proxy Server Support](https://code.visualstudio.com/docs/setup/network#_proxy-server-support). To double-check that this is enabled, use <kbd>cmd/ctrl</kbd> + <kbd>,</kbd> to open settings and search for "Proxy Support". Unless it is set to "off", then VS Code is responsible for making the request to the proxy.
@@ -158,6 +161,12 @@ We use LanceDB as our vector database for codebase search features. On x64 Linux
 Most Continue features will work normally, including autocomplete and chat. However, commands that rely on codebase indexing, such as `@codebase`, `@files`, and `@folder`, will be disabled.
 
 For more details about this requirement, see the [LanceDB issue #2195](https://github.com/lancedb/lance/issues/2195).
+
+### How do I reset the state of the extension?
+
+Continue stores it's data in the `~/.continue` directory (%USERPROFILE%\.continue` on Windows).
+
+If you'd like to perform a clean reset of the extension, including removing all configuration files, indices, etc, you can remove this directory, uninstall, and then reinstall. 
 
 ## Still having trouble?
 

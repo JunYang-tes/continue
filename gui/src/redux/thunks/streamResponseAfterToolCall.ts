@@ -1,7 +1,8 @@
 import { createAsyncThunk, unwrapResult } from "@reduxjs/toolkit";
-import { ChatMessage, ContextItem } from "core";
+import { ChatMessage } from "core";
 import { constructMessages } from "core/llm/constructMessages";
 import { renderContextItems } from "core/util/messageContent";
+import { getBaseSystemMessage } from "../../util";
 import { selectSelectedChatModel } from "../slices/configSlice";
 import {
   addContextItemsAtIndex,
@@ -9,20 +10,18 @@ import {
   streamUpdate,
 } from "../slices/sessionSlice";
 import { ThunkApiType } from "../store";
+import { findToolCall } from "../util";
 import { resetStateForNewMessage } from "./resetStateForNewMessage";
 import { streamNormalInput } from "./streamNormalInput";
 import { streamThunkWrapper } from "./streamThunkWrapper";
 
 export const streamResponseAfterToolCall = createAsyncThunk<
   void,
-  {
-    toolCallId: string;
-    toolOutput: ContextItem[];
-  },
+  { toolCallId: string },
   ThunkApiType
 >(
   "chat/streamAfterToolCall",
-  async ({ toolCallId, toolOutput }, { dispatch, getState }) => {
+  async ({ toolCallId }, { dispatch, getState }) => {
     await dispatch(
       streamThunkWrapper(async () => {
         const state = getState();
@@ -32,6 +31,14 @@ export const streamResponseAfterToolCall = createAsyncThunk<
         if (!selectedChatModel) {
           throw new Error("No model selected");
         }
+
+        const toolCallState = findToolCall(state.session.history, toolCallId);
+
+        if (!toolCallState) {
+          return; // in cases where edit tool is cancelled mid apply, this will be triggered
+        }
+
+        const toolOutput = toolCallState.output ?? [];
 
         resetStateForNewMessage();
 
@@ -59,11 +66,18 @@ export const streamResponseAfterToolCall = createAsyncThunk<
         dispatch(setActive());
 
         const updatedHistory = getState().session.history;
+        const messageMode = getState().session.mode;
+
+        const baseChatOrAgentSystemMessage = getBaseSystemMessage(
+          selectedChatModel,
+          messageMode,
+        );
+
         const messages = constructMessages(
+          messageMode,
           [...updatedHistory],
-          selectedChatModel?.baseChatSystemMessage,
+          baseChatOrAgentSystemMessage,
           state.config.config.rules,
-          selectedChatModel.model,
         );
 
         unwrapResult(await dispatch(streamNormalInput({ messages })));
