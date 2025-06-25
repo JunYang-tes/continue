@@ -13,7 +13,7 @@ export class LlamaAsyncEncoder implements AsyncEncoder {
 
   constructor() {
     this.workerPool = workerpool.pool(
-      workerCodeFilePath("llamaTokenizerWorkerPool.mjs"),
+      workerCodeFilePath("llamaTokenizerWorkerPool.js"),// swc transpiles this to js
     );
   }
 
@@ -37,7 +37,7 @@ export class GPTAsyncEncoder implements AsyncEncoder {
 
   constructor() {
     this.workerPool = workerpool.pool(
-      workerCodeFilePath("tiktokenWorkerPool.mjs"),
+      workerCodeFilePath("tiktokenWorkerPool.js"),
     );
   }
 
@@ -57,8 +57,8 @@ export class GPTAsyncEncoder implements AsyncEncoder {
 
 function workerCodeFilePath(workerFileName: string): string {
   if (process.env.NODE_ENV === "test") {
-    // `cross-env` seems to make it so __dirname is the root of the project and not the directory containing this file
-    return path.join(__dirname, "llm", workerFileName);
+    // `cross-env` seems to make it so import.meta.dirname is the root of the project and not the directory containing this file
+    return path.join(import.meta.dirname, "llm", workerFileName);
   }
-  return path.join(__dirname, workerFileName);
+  return path.join(import.meta.dirname, workerFileName);
 }

@@ -1,9 +1,12 @@
 import fs from "node:fs";
+import fsp from 'node:fs/promises'
 import path from "path";
 
 import Parser, { Language } from "web-tree-sitter";
 import { FileSymbolMap, IDE, SymbolWithRange } from "..";
 import { getUriFileExtension } from "./uri";
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
 
 export enum LanguageName {
   CPP = "cpp",
@@ -181,7 +184,7 @@ export async function getQueryForFile(
   }
 
   const sourcePath = path.join(
-    process.env.NODE_ENV === "test" ? process.cwd() : __dirname,
+    import.meta.dirname,
     "..",
     ...(process.env.NODE_ENV === "test"
       ? ["extensions", "vscode", "tree-sitter"]
@@ -200,14 +203,29 @@ export async function getQueryForFile(
 async function loadLanguageForFileExt(
   fileExtension: string,
 ): Promise<Language> {
-  const wasmPath = path.join(
-    process.env.NODE_ENV === "test" ? process.cwd() : __dirname,
-    ...(process.env.NODE_ENV === "test"
-      ? ["node_modules", "tree-sitter-wasms", "out"]
-      : ["tree-sitter-wasms"]),
-    `tree-sitter-${supportedLanguages[fileExtension]}.wasm`,
-  );
-  return await Parser.Language.load(wasmPath);
+  let wasmPath = "";
+  (require.resolve.paths?.("tree-sitter-wasms") ?? [])
+    .map(p => path.join(p, 'tree-sitter-wasms', 'out',
+      `tree-sitter-${supportedLanguages[fileExtension]}.wasm`
+    ))
+    .map(async p => [await fsp.access(p, fsp.constants.F_OK)
+      .then(() => true)
+      .catch(() => false)
+    ] as const)
+  for (const p of (require.resolve.paths?.("tree-sitter-wasms") ?? [])) {
+    wasmPath = path.join(p, 'tree-sitter-wasms', 'out',
+      `tree-sitter-${supportedLanguages[fileExtension]}.wasm`
+    )
+    if (await fsp.access(wasmPath, fsp.constants.F_OK)
+      .then(() => true)
+      .catch(() => false)
+    ) {
+      return await Parser.Language.load(wasmPath);
+    }
+  }
+
+  throw new Error("Wasm path not found for file extension: " + fileExtension);
+
 }
 
 // See https://tree-sitter.github.io/tree-sitter/using-parsers

@@ -40,6 +40,7 @@ const RUNNING_LOCALLY = FS_AVAILABLE && PATH_AVAILABLE;
 // const __dirname = RUNNING_LOCALLY
 //     ? path.dirname(path.dirname(url.fileURLToPath(import.meta.url)))
 //     : './';
+const __dirname = import.meta.dirname
 
 // Only used for environments with access to file system
 const DEFAULT_CACHE_DIR = RUNNING_LOCALLY
